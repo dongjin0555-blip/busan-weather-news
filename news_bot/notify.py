@@ -35,9 +35,15 @@ def tg_send(token, chat_id, text):
             urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data, timeout=30).read()
             return
         except urllib.error.HTTPError as e:
+            body = {}
+            try:
+                body = json.load(e)
+            except Exception:
+                pass
             if e.code != 429:
-                raise
-            time.sleep(json.load(e).get("parameters", {}).get("retry_after", 5) + 1)
+                # 텔레그램이 알려주는 정확한 사유를 로그에 남김 (토큰은 출력하지 않음)
+                raise SystemExit(f"텔레그램 전송 실패 HTTP {e.code}: {body.get('description', '사유 없음')}")
+            time.sleep(body.get("parameters", {}).get("retry_after", 5) + 1)
     raise RuntimeError("telegram rate limit")
 
 
