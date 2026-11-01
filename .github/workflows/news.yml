@@ -1,0 +1,29 @@
+name: weather-news-telegram
+on:
+  schedule:
+    - cron: "*/15 0-8 * * *"   # UTC 00:00~08:45 = KST 09:00~17:45, 15분 간격
+    - cron: "0 9 * * *"        # UTC 09:00 = KST 18:00 (마지막 실행)
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "true 이면 최신 기사 1건을 테스트로 전송(이력 변경 없음)"
+        default: "false"
+permissions:
+  contents: write
+concurrency: news
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: python news_bot/notify.py ${{ inputs.test == 'true' && '--test' || '' }} ${{ github.event_name == 'schedule' && '--only-hours' || '' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: 전송 이력 저장
+        run: |
+          git config user.name "news-bot"; git config user.email "news-bot@users.noreply.github.com"
+          git add news_bot/sent.json data.json
+          git diff --cached --quiet || (git commit -m "update sent" && git pull --rebase -q && git push)
