@@ -19,7 +19,7 @@ import scrape
 
 SENT_FILE = Path(__file__).with_name("sent.json")
 DATA_FILE = Path(__file__).resolve().parent.parent / "data.json"   # 대시보드(index.html)가 읽는 파일
-KEEP_DAYS = 14         # 대시보드용 기사 보관 일수
+KEEP_DAYS = 90         # 대시보드용 기사 보관 일수 (전체 내역 탭에서 조회)
 KEEP_REJECTED_DAYS = 2 # 제외된 기사 보관 일수
 MAX_REJECTED = 300
 KST = timezone(timedelta(hours=9))

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>부산·울산·경남 주요 기상 뉴스</title>
+<title>부산·울산·경남 기상·재해 뉴스</title>
 <link rel="icon" href="data:,">
 <style>
   :root {
@@ -38,14 +38,20 @@
     margin: 0; background: var(--page); color: var(--ink);
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 16px 48px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 14px 16px 48px; }
   button { font: inherit; color: inherit; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 
-  .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; margin-bottom: 8px; }
+  .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
+  .tabs { display: flex; gap: 4px; }
+  .tab { border: 0; background: none; padding: 8px 16px; cursor: pointer; font-size: 17px; font-weight: 650; color: var(--ink-2); border-bottom: 3px solid transparent; }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+  .right { display: flex; align-items: center; gap: 10px; color: var(--ink-2); font-size: 13px; }
   .ghost { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 3px 10px; cursor: pointer; font-size: 12px; color: var(--ink-2); }
   .ghost:hover { background: var(--wash); }
 
+  /* 주요 기사: 큰 제목 */
   ol.big { list-style: none; margin: 0; padding: 0; }
   ol.big li { padding: 22px 0 22px 20px; border-bottom: 1px solid var(--line); box-shadow: inset 6px 0 0 var(--critical); }
   ol.big li.old { box-shadow: inset 6px 0 0 var(--line); }
@@ -58,29 +64,71 @@
   a.go { color: var(--accent); font-weight: 650; text-decoration: none; border-bottom: 2px solid currentColor; }
   a.go:hover { opacity: .8; }
 
+  /* 전체 내역: 날짜별 목록 */
+  .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 4px; }
+  .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 4px 14px; cursor: pointer; font-size: 14px; color: var(--ink-2); }
+  .chip:hover { background: var(--wash); }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--page); border-color: var(--ink); }
+  .count { margin-left: auto; font-size: 13px; color: var(--ink-2); }
+  h2.day { margin: 22px 0 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+  ul.news { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  ul.news li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  ul.news li:last-child { border-bottom: 0; }
+  ul.news li.imp { box-shadow: inset 3px 0 0 var(--critical); }
+  .body { flex: 1; min-width: 0; }
+  .t2 { font-weight: 600; font-size: 17px; word-break: keep-all; overflow-wrap: anywhere; }
+  .meta { margin-top: 2px; font-size: 12px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 0 10px; }
+  .flag { font-weight: 700; color: var(--critical); }
+  a.btn { flex: none; text-decoration: none; font-size: 14px; font-weight: 650; color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; padding: 5px 12px; white-space: nowrap; }
+  a.btn:hover { background: var(--accent); color: var(--surface); }
+
   .empty { text-align: center; color: var(--ink-2); padding: 80px 8px; font-size: clamp(22px, 4vw, 34px); font-weight: 650; }
+  .empty.small { padding: 40px 8px; font-size: 17px; font-weight: 500; }
   .more { text-align: center; margin-top: 20px; }
   .more .ghost { font-size: 15px; padding: 8px 18px; }
   .err { color: var(--critical); padding: 10px 0; }
   .busy { opacity: .6; transition: opacity .15s; }
+
+  @media (max-width: 520px) {
+    .tab { padding: 8px 10px; font-size: 16px; }
+    ul.news li { align-items: flex-start; flex-direction: column; gap: 8px; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
-    <span id="upd" aria-live="polite">불러오는 중…</span>
-    <button class="ghost" type="button" id="theme" aria-label="화면 모드 변경">화면: 자동</button>
+    <div class="tabs" role="tablist" aria-label="보기">
+      <button class="tab" role="tab" id="tab-imp" data-v="imp" aria-selected="true">주요 기사</button>
+      <button class="tab" role="tab" id="tab-all" data-v="all" aria-selected="false">전체 내역</button>
+    </div>
+    <div class="right">
+      <span id="upd" aria-live="polite">불러오는 중…</span>
+      <button class="ghost" type="button" id="theme" aria-label="화면 모드 변경">화면: 자동</button>
+    </div>
   </div>
   <div id="err" class="err" style="display:none"></div>
-  <main><ol class="big" id="list" aria-label="주요 기사"></ol></main>
-  <div class="more" id="more"></div>
+
+  <section id="vImp"><ol class="big" id="listImp" aria-label="주요 기사"></ol><div class="more" id="moreImp"></div></section>
+
+  <section id="vAll" style="display:none">
+    <div class="tools" role="group" aria-label="지역 필터">
+      <button class="chip" type="button" data-r="전체" aria-pressed="true">전체</button>
+      <button class="chip" type="button" data-r="부산" aria-pressed="false">부산</button>
+      <button class="chip" type="button" data-r="울산" aria-pressed="false">울산</button>
+      <button class="chip" type="button" data-r="경남" aria-pressed="false">경남</button>
+      <span class="count" id="count"></span>
+    </div>
+    <div id="listAll"></div><div class="more" id="moreAll"></div>
+  </section>
 </div>
 
 <script>
 (function () {
   "use strict";
-  const KST = 9 * 3600e3, HOUR = 3600e3, PAGE = 12;
-  let DATA = { updated: null, items: [] }, limit = PAGE;
+  const KST = 9 * 3600e3, DAY = 86400e3, HOUR = 3600e3, PAGE_IMP = 12, PAGE_ALL = 50;
+  const state = { view: location.hash === "#all" ? "all" : "imp", region: "전체", limitImp: PAGE_IMP, limitAll: PAGE_ALL };
+  let DATA = { updated: null, items: [] };
   const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2, "0");
   function el(tag, props, ...kids) {
@@ -93,16 +141,25 @@
   }
   const safeUrl = (u) => /^https?:\/\//i.test(u) ? u : "#";
   const parts = (t) => { const d = new Date(t + KST); return { mo: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes() }; };
+  const dayKey = (t) => Math.floor((t + KST) / DAY);
+  const byNewest = (a, b) => Date.parse(b.dt) - Date.parse(a.dt);
+  function dayLabel(k) {
+    const today = dayKey(Date.now());
+    if (k === today) return "오늘";
+    if (k === today - 1) return "어제";
+    const p = parts(k * DAY - KST + 1);
+    return `${p.mo}월 ${p.d}일`;
+  }
 
-  function render() {
-    // 주요 기사만, 최신순
-    const items = DATA.items.filter((i) => i.important).sort((a, b) => Date.parse(b.dt) - Date.parse(a.dt));
-    const ol = $("list"); ol.replaceChildren(); $("more").replaceChildren();
+  /* ── 주요 기사: 큰 제목 ── */
+  function renderImp() {
+    const items = DATA.items.filter((i) => i.important).sort(byNewest);
+    const ol = $("listImp"); ol.replaceChildren(); $("moreImp").replaceChildren();
     if (!items.length) {
       ol.append(el("li", { class: "empty", style: "box-shadow:none;border:0", text: DATA.updated ? "현재 주요 기사가 없습니다" : "수집 대기 중입니다" }));
       return;
     }
-    items.slice(0, limit).forEach((i) => {
+    items.slice(0, state.limitImp).forEach((i) => {
       const t = Date.parse(i.dt), p = parts(t), fresh = Date.now() - t < 24 * HOUR;
       ol.append(el("li", { class: fresh ? "" : "old" },
         el("h2", { class: "title", text: i.title }),
@@ -111,18 +168,59 @@
           el("span", { text: i.regions.join("·") }),
           el("a", { class: "go", href: safeUrl(i.link), target: "_blank", rel: "noopener noreferrer", "aria-label": i.title + " 원문보기", text: "원문보기" }))));
     });
-    if (items.length > limit) {
-      const b = el("button", { class: "ghost", type: "button", text: `이전 주요 기사 더 보기 (${items.length - limit}건)` });
-      b.addEventListener("click", () => { limit += PAGE; render(); });
-      $("more").append(b);
+    if (items.length > state.limitImp) {
+      const b = el("button", { class: "ghost", type: "button", text: `이전 주요 기사 더 보기 (${items.length - state.limitImp}건)` });
+      b.addEventListener("click", () => { state.limitImp += PAGE_IMP; renderImp(); });
+      $("moreImp").append(b);
     }
   }
 
+  /* ── 전체 내역: 날짜별 ── */
+  function renderAll() {
+    document.querySelectorAll("#vAll .chip").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.r === state.region)));
+    const items = DATA.items.filter((i) => state.region === "전체" || i.regions.includes(state.region)).sort(byNewest);
+    const box = $("listAll"); box.replaceChildren(); $("moreAll").replaceChildren();
+    $("count").textContent = `총 ${items.length}건 · 최근 ${DATA.items.length ? Math.max(1, Math.ceil((Date.now() - Date.parse(DATA.items[DATA.items.length - 1].dt)) / DAY)) : 0}일치`;
+    if (!items.length) {
+      box.append(el("div", { class: "empty small", text: DATA.updated ? "쌓인 기사가 없습니다." : "수집 대기 중입니다." }));
+      return;
+    }
+    let curKey = null, ul = null;
+    items.slice(0, state.limitAll).forEach((i) => {
+      const t = Date.parse(i.dt), k = dayKey(t);
+      if (k !== curKey) { curKey = k; box.append(el("h2", { class: "day", text: dayLabel(k) })); ul = el("ul", { class: "news" }); box.append(ul); }
+      const p = parts(t), meta = el("div", { class: "meta" });
+      if (i.important) meta.append(el("span", { class: "flag", text: "주요" }));
+      meta.append(el("span", { text: `${pad(p.h)}:${pad(p.mi)}` }), el("span", { text: i.regions.join("·") }), el("span", { text: i.categories.join("·") }));
+      ul.append(el("li", { class: i.important ? "imp" : "" },
+        el("div", { class: "body" }, el("div", { class: "t2", text: i.title }), meta),
+        el("a", { class: "btn", href: safeUrl(i.link), target: "_blank", rel: "noopener noreferrer", "aria-label": i.title + " 원문보기", text: "원문보기" })));
+    });
+    if (items.length > state.limitAll) {
+      const b = el("button", { class: "ghost", type: "button", text: `더 보기 (${items.length - state.limitAll}건 남음)` });
+      b.addEventListener("click", () => { state.limitAll += PAGE_ALL; renderAll(); });
+      $("moreAll").append(b);
+    }
+  }
+
+  function render() {
+    document.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.v === state.view)));
+    $("vImp").style.display = state.view === "imp" ? "" : "none";
+    $("vAll").style.display = state.view === "all" ? "" : "none";
+    if (state.view === "imp") renderImp(); else renderAll();
+  }
+  document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => {
+    state.view = b.dataset.v; history.replaceState(null, "", state.view === "all" ? "#all" : location.pathname + location.search); render();
+  }));
+  document.querySelectorAll("#vAll .chip").forEach((b) => b.addEventListener("click", () => { state.region = b.dataset.r; state.limitAll = PAGE_ALL; renderAll(); }));
+
+  /* ── 데이터 ── */
   function setUpdated() {
     if (!DATA.updated) { $("upd").textContent = "수집 대기 중"; return; }
     const t = Date.parse(DATA.updated), p = parts(t), min = Math.max(0, Math.round((Date.now() - t) / 60000));
     $("upd").textContent = `${pad(p.mo)}/${pad(p.d)} ${pad(p.h)}:${pad(p.mi)} 업데이트 (${min < 1 ? "방금" : min < 60 ? min + "분 전" : Math.floor(min / 60) + "시간 전"})`;
   }
+  let lastLoad = 0;
   async function load() {
     const w = document.querySelector(".wrap"); w.classList.add("busy");
     try {
@@ -135,15 +233,12 @@
         ? "파일을 직접 열면 데이터를 읽을 수 없습니다. 웹 주소(https://…github.io/busan-weather-news/)로 접속해 주세요."
         : "데이터를 불러오지 못했습니다 (" + e.message + "). 인터넷 연결, 광고 차단·보안 프로그램, 사내망 차단 여부를 확인해 주세요.";
     }
-    w.classList.remove("busy"); setUpdated(); render();
+    lastLoad = Date.now(); w.classList.remove("busy"); setUpdated(); render();
   }
-  let lastLoad = Date.now();
-  const reload = async () => { await load(); lastLoad = Date.now(); };
-  setInterval(reload, 3 * 60 * 1000);
+  setInterval(load, 3 * 60 * 1000);
   setInterval(setUpdated, 30 * 1000);
-  // 백그라운드 탭은 타이머가 늦어지므로, 탭으로 돌아오는 순간 오래됐으면 바로 새로 읽음
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && Date.now() - lastLoad > 60 * 1000) reload();
+    if (document.visibilityState === "visible" && Date.now() - lastLoad > 60 * 1000) load();
   });
 
   const MODES = ["auto", "light", "dark"], LABEL = { auto: "자동", light: "라이트", dark: "다크" };
