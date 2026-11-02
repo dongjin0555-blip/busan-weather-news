@@ -72,20 +72,33 @@ def build_digest(items, now=None, limit=3800):
     return msgs
 
 
+def chat_label(token, chat_id):
+    """전송 대상 채팅 이름 (테스트 메시지에서 올바른 채널로 가는지 확인용)."""
+    try:
+        q = urllib.parse.urlencode({"chat_id": chat_id})
+        r = json.load(urllib.request.urlopen(f"https://api.telegram.org/bot{token}/getChat?{q}", timeout=30))["result"]
+        name = r.get("title") or " ".join(filter(None, [r.get("first_name"), r.get("last_name")])) or "이름 없음"
+        kind = {"channel": "채널", "supergroup": "그룹", "group": "그룹", "private": "개인 대화"}.get(r.get("type"), r.get("type", ""))
+        user = f" (@{r['username']})" if r.get("username") else ""
+        return f"{kind} '{name}'{user}"
+    except Exception as e:
+        return f"확인 실패({type(e).__name__})"
+
+
 def run_test(token, chat_id):
     """연결 확인용: 이력과 무관하게 최신 기사 최대 3건을 묶어 보내고 이력은 건드리지 않는다."""
     items = scrape.collect()
     print(f"collected={len(items)}")
     if not items:
         # 기사가 없어도 텔레그램 연결 자체는 확인할 수 있게 안내 메시지를 보내고 정상 종료
-        tg_send(token, chat_id, "✅ <b>테스트 전송</b>\n연결은 정상입니다. "
+        tg_send(token, chat_id, f"✅ <b>테스트 전송</b>\n전송 대상: {html.escape(chat_label(token, chat_id))}\n연결은 정상입니다. "
                 "지금 연합뉴스 RSS에 조건(부산·울산·경남 기상·재해)에 맞는 기사가 없습니다. "
                 "기사가 나오면 자동으로 이 채널에 전송됩니다.")
         print("sent test: no matching articles (connection ok)")
         return
     pick = sorted(items, key=lambda i: i["dt"])[-3:]
     for m in build_digest(pick):
-        tg_send(token, chat_id, "✅ <b>테스트 전송</b>\n" + m)
+        tg_send(token, chat_id, f"✅ <b>테스트 전송</b> → {html.escape(chat_label(token, chat_id))}\n" + m)
     print("sent test:", [i["title"] for i in pick])
 
 

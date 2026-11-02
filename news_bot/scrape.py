@@ -42,7 +42,8 @@ def parse_dt(text):
 
 def classify(text):
     """(지역, 분류 라벨 리스트, 키워드, 중요도 점수, 제외 사유) 반환. 분류가 없으면 라벨 리스트는 빈 값."""
-    regions = [r for r, ns in C.REGIONS.items() if any(n in text for n in ns)]
+    rtext = text.replace("부산물", "")  # '영농부산물' 등이 부산으로 잡히는 것 방지
+    regions = [r for r, ns in C.REGIONS.items() if any(n in rtext for n in ns)]
     ex = next((w for w in C.EXCLUDE if w in text), None)
     a = [k for k in C.CAUSE if k in text]
     b = [k for k in C.DAMAGE if k in text]
