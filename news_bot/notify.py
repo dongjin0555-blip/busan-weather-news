@@ -23,7 +23,7 @@ KEEP_DAYS = 90         # 대시보드용 기사 보관 일수 (전체 내역 탭
 KEEP_REJECTED_DAYS = 2 # 제외된 기사 보관 일수
 MAX_REJECTED = 300
 KST = timezone(timedelta(hours=9))
-MAX_PER_RUN = 40       # 1회 묶음에 담을 최대 기사 수
+MAX_PER_RUN = 100      # 1회 묶음에 담을 최대 기사 수 (아침 브리핑에 밤사이 기사가 쌓여 있을 수 있음)
 FIRST_RUN_HOURS = 3    # 이력 파일이 없을 때(첫 실행)는 최근 N시간 기사만 전송
 
 
@@ -54,12 +54,29 @@ def format_line(it):
             f'<a href="{html.escape(it["link"], quote=True)}">원문보기</a>')
 
 
+def _day_label(d, today):
+    return "오늘" if d == today else "어제" if (today - d).days == 1 else f"{d:%m/%d}"
+
+
 def build_digest(items, now=None, limit=3800):
-    """기사 여러 건을 하나의 메시지로 묶음 (주요 기사 먼저). 길이 초과 시에만 여러 메시지로 분할."""
+    """기사 여러 건을 하나의 메시지로 묶음 (주요 기사 먼저). 길이 초과 시에만 여러 메시지로 분할.
+
+    기사가 여러 날에 걸쳐 있으면(아침 브리핑) 날짜별로 나누고 각 날짜 안에서 주요 기사를 먼저 보여준다.
+    """
     now = now or datetime.now(KST)
-    ordered = sorted(items, key=lambda i: (not i["important"], i["dt"]))
-    lines = [format_line(i) for i in ordered]
-    head = f"📋 <b>기상·재해 뉴스 {len(items)}건</b> ({now:%m/%d %H:%M} 기준)\n"
+    day_of = lambda i: datetime.fromisoformat(i["dt"]).astimezone(KST).date()
+    order = lambda xs: sorted(xs, key=lambda i: (not i["important"], i["dt"]))
+    days = sorted({day_of(i) for i in items})
+    lines = []
+    if len(days) > 1:
+        head = f"🌅 <b>지난 기사 포함 {len(items)}건</b> ({now:%m/%d %H:%M} 기준)\n"
+        for d in days:
+            day_items = order([i for i in items if day_of(i) == d])
+            lines.append(f"<b>— {_day_label(d, now.date())} ({len(day_items)}건) —</b>")
+            lines += [format_line(i) for i in day_items]
+    else:
+        head = f"📋 <b>기상·재해 뉴스 {len(items)}건</b> ({now:%m/%d %H:%M} 기준)\n"
+        lines = [format_line(i) for i in order(items)]
     msgs, cur = [], head
     for ln in lines:
         if len(cur) + len(ln) + 2 > limit:
@@ -190,6 +207,12 @@ def main():
         if dry:
             raise SystemExit("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID 가 없습니다")
         return run_test(token, chat_id)
+    if os.environ.get("MODE") == "collect":
+        # 전송·전송이력 변경 없이 기사만 모아 대시보드 데이터에 반영 (다음 전송 실행이 묶어서 보냄)
+        items = scrape.collect()
+        write_data(items, scrape.rejected)
+        print(f"collect-only: collected={len(items)} (전송 안 함)")
+        return
     first = not SENT_FILE.exists()
     sent = {} if first else json.loads(SENT_FILE.read_text())
 

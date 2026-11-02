@@ -1,7 +1,8 @@
 name: weather-news-telegram
 on:
   schedule:
-    - cron: "*/15 0-8 * * 1-5" # 평일만, UTC 00:00~08:45 = KST 09:00~17:45, 15분 간격 (보조)
+    - cron: "*/15 23 * * 0-4"  # 평일 KST 08:00~08:45 (UTC 전날 23시, 일~목) 15분 간격 (보조)
+    - cron: "*/15 0-8 * * 1-5" # 평일 KST 09:00~17:45, 15분 간격 (보조)
     - cron: "0 9 * * 1-5"      # 평일만, UTC 09:00 = KST 18:00 (마지막 실행)
   workflow_dispatch:
     inputs:
@@ -13,6 +14,9 @@ on:
         default: ""
       until:
         description: "구간 테스트 끝 (KST, 예: 2026-11-02 09:00)"
+        default: ""
+      mode:
+        description: "collect 이면 전송 없이 기사만 수집(밤·주말용), 비우면 일반 전송"
         default: ""
       debug:
         description: "1 이면 RSS 원본 요약 형식을 로그에 출력(전송 없음)"
@@ -34,6 +38,7 @@ jobs:
           WIN_SINCE: ${{ inputs.since }}
           WIN_UNTIL: ${{ inputs.until }}
           DEBUG_FEED: ${{ inputs.debug }}
+          MODE: ${{ inputs.mode }}
       - name: 전송 이력 저장
         run: |
           git config user.name "news-bot"; git config user.email "news-bot@users.noreply.github.com"
