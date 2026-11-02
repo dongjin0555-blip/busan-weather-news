@@ -80,7 +80,7 @@ def classify(title, desc=""):
         kinds = [C.KIND_CAUSE]
     elif is_alert:
         kinds = [C.KIND_ALERT]
-    elif c:
+    elif c and any(m in text for m in C.INCIDENT_MARKERS):
         kinds = [C.KIND_DATA]
     score = sum(w for t, w in C.IMPORTANT_TERMS.items() if t in text)
     reason = f"제외어({ex})" if ex else ("지역 불일치" if not regions else "기상/사고 조합 없음")
