@@ -179,25 +179,33 @@ def within_hours(now=None):
     return C.COLLECT_START_HOUR * 60 <= now.hour * 60 + now.minute <= C.COLLECT_END_HOUR * 60 + 30
 
 
-def debug_feed():
-    """원본 RSS 요약 형식 점검용 (지역 분류 개선 근거). 전송/저장 없음."""
-    for url in C.FEED_URLS:
-        items = list(scrape.fetch_rss(url).iter("item"))
+def debug_feed(spec=""):
+    """RSS 점검용. spec 이 http 로 시작하면 쉼표로 구분한 후보 주소들을 점검, 아니면 설정된 FEED_URLS 점검.
+    각 주소: 접속 여부, 건수, 가장 최신/오래된 기사 시각, 부산·울산·경남 해당 건수, 해당 기사 제목 일부. 전송/저장 없음."""
+    urls = [u.strip() for u in spec.split(",") if u.strip()] if spec.startswith("http") else C.FEED_URLS
+    for url in urls:
+        try:
+            items = list(scrape.fetch_rss(url).iter("item"))
+        except Exception as e:
+            print(f"[실패] {url}: {type(e).__name__}: {e}")
+            continue
         dts = [scrape.parse_dt(i.findtext("pubDate") or "") for i in items]
         dts = [d.astimezone(KST) for d in dts if d]
-        if dts:
-            print(f"feed {url}: {len(items)} items | 가장 최신 {max(dts):%m/%d %H:%M} ~ 가장 오래된 {min(dts):%m/%d %H:%M} (KST)")
-        else:
-            print(f"feed {url}: {len(items)} items")
-        for it in items[:0]:  # 원본 샘플 출력은 끔(필요하면 숫자 변경)
-            print("T:", scrape.clean(it.findtext("title")))
-            print("D:", scrape.clean(it.findtext("description"))[:160])
-            print("-")
+        span = f"가장 최신 {max(dts):%m/%d %H:%M} ~ 가장 오래된 {min(dts):%m/%d %H:%M}" if dts else "시각 없음"
+        hit = []
+        for i in items:
+            t, d = scrape.clean(i.findtext("title")), scrape.clean(i.findtext("description"))
+            regions, kinds, *_ = scrape.classify(t, d)
+            if regions:
+                hit.append((t, regions, kinds))
+        print(f"[성공] {url}: {len(items)}건 | {span} (KST) | 부산·울산·경남 해당 {len(hit)}건")
+        for t, r, k in hit[:6]:
+            print(f"   - [{'/'.join(r)}] {k[0] if k else '분류없음'} | {t[:46]}")
 
 
 def main():
     if os.environ.get("DEBUG_FEED"):
-        return debug_feed()
+        return debug_feed(os.environ["DEBUG_FEED"])
     token, chat_id = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
     dry = not (token and chat_id)
     if "--only-hours" in sys.argv and not within_hours():
