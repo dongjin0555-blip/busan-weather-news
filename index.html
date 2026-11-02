@@ -130,7 +130,10 @@
       if (!res.ok) throw new Error("HTTP " + res.status);
       DATA = await res.json(); $("err").style.display = "none";
     } catch (e) {
-      $("err").style.display = "block"; $("err").textContent = "데이터를 불러오지 못했습니다 (" + e.message + ")";
+      $("err").style.display = "block";
+      $("err").textContent = location.protocol === "file:"
+        ? "파일을 직접 열면 데이터를 읽을 수 없습니다. 웹 주소(https://…github.io/busan-weather-news/)로 접속해 주세요."
+        : "데이터를 불러오지 못했습니다 (" + e.message + "). 인터넷 연결, 광고 차단·보안 프로그램, 사내망 차단 여부를 확인해 주세요.";
     }
     w.classList.remove("busy"); setUpdated(); render();
   }
