@@ -25,5 +25,6 @@ jobs:
       - name: 전송 이력 저장
         run: |
           git config user.name "news-bot"; git config user.email "news-bot@users.noreply.github.com"
-          git add news_bot/sent.json data.json
+          git add data.json
+          [ -f news_bot/sent.json ] && git add news_bot/sent.json || true
           git diff --cached --quiet || (git commit -m "update sent" && git pull --rebase -q && git push)
