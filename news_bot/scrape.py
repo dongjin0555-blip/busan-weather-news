@@ -40,20 +40,45 @@ def parse_dt(text):
     return dt
 
 
-def classify(text):
-    """(지역, 분류 라벨 리스트, 키워드, 중요도 점수, 제외 사유) 반환. 분류가 없으면 라벨 리스트는 빈 값."""
-    rtext = text.replace("부산물", "")  # '영농부산물' 등이 부산으로 잡히는 것 방지
-    regions = [r for r, ns in C.REGIONS.items() if any(n in rtext for n in ns)]
+DATELINE = re.compile(r"^\(([^=)]{1,12})=연합뉴스\)")
+
+
+def split_desc(desc):
+    """RSS 요약 '(송고지=연합뉴스) 기자 = 본문' 을 (송고지, 본문 첫 문장 부분)으로 분리."""
+    m = DATELINE.match(desc)
+    place = m.group(1) if m else ""
+    body = re.sub(r"^\([^)]*\)\s*[^=]{0,40}=\s*", "", desc) if m else desc
+    return place, body[:150]
+
+
+def _regions(text):
+    text = text.replace("부산물", "")  # '영농부산물' 등이 부산으로 잡히는 것 방지
+    return [r for r, ns in C.REGIONS.items() if any(n in text for n in ns)]
+
+
+def classify(title, desc=""):
+    """(지역, 분류 라벨 리스트, 키워드, 중요도 점수, 제외 사유) 반환. 분류가 없으면 라벨 리스트는 빈 값.
+
+    지역 판단: 제목·송고지 우선. 본문 첫 문장에서만 나온 지역은 기상/재해/사고 키워드가 있을 때만 인정
+    (일반 기사 본문에 곁다리로 나온 지명에 걸리는 오탐 방지).
+    """
+    place, body = split_desc(desc)
+    text = f"{title} {body}"
+    strong = _regions(f"{title} {place}")
+    weak = [r for r in _regions(body) if r not in strong]
     ex = next((w for w in C.EXCLUDE if w in text), None)
     a = [k for k in C.CAUSE if k in text]
     b = [k for k in C.DAMAGE if k in text]
     c = [k for k in C.NEEDS_DATA if k in text]
+    is_cause = bool(a and (b or c))
+    is_alert = any(t in text for t in C.ALERT_TERMS) and any(t in text for t in C.ALERT_ACTIONS)
+    regions = strong + (weak if (a or b or c or is_alert) else [])
     kinds = []
     if ex or not regions:
         pass
-    elif a and (b or c):
+    elif is_cause:
         kinds = [C.KIND_CAUSE]
-    elif any(t in text for t in C.ALERT_TERMS) and any(t in text for t in C.ALERT_ACTIONS):
+    elif is_alert:
         kinds = [C.KIND_ALERT]
     elif c:
         kinds = [C.KIND_DATA]
@@ -84,7 +109,7 @@ def collect(max_age_hours=None):
             if dt is None or now - dt > limit:
                 continue
             title, desc = clean(it.findtext("title")), clean(it.findtext("description"))
-            regions, kinds, kws, score, reason = classify(title + " " + desc)
+            regions, kinds, kws, score, reason = classify(title, desc)
             link = (it.findtext("link") or "").split("?")[0]
             if not link or not regions:
                 continue
