@@ -183,8 +183,13 @@ def debug_feed():
     """원본 RSS 요약 형식 점검용 (지역 분류 개선 근거). 전송/저장 없음."""
     for url in C.FEED_URLS:
         items = list(scrape.fetch_rss(url).iter("item"))
-        print(f"feed {url}: {len(items)} items")
-        for it in items[:12]:
+        dts = [scrape.parse_dt(i.findtext("pubDate") or "") for i in items]
+        dts = [d.astimezone(KST) for d in dts if d]
+        if dts:
+            print(f"feed {url}: {len(items)} items | 가장 최신 {max(dts):%m/%d %H:%M} ~ 가장 오래된 {min(dts):%m/%d %H:%M} (KST)")
+        else:
+            print(f"feed {url}: {len(items)} items")
+        for it in items[:0]:  # 원본 샘플 출력은 끔(필요하면 숫자 변경)
             print("T:", scrape.clean(it.findtext("title")))
             print("D:", scrape.clean(it.findtext("description"))[:160])
             print("-")
