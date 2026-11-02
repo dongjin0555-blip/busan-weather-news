@@ -88,6 +88,7 @@
   .more .ghost { font-size: 15px; padding: 8px 18px; }
   .err { color: var(--critical); padding: 10px 0; }
   .busy { opacity: .6; transition: opacity .15s; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--page); padding: 10px 18px; border-radius: 999px; font-size: 15px; font-weight: 650; box-shadow: 0 6px 24px rgba(0,0,0,.25); display: none; z-index: 10; cursor: pointer; }
 
   @media (max-width: 520px) {
     .tab { padding: 8px 10px; font-size: 16px; }
@@ -108,6 +109,7 @@
     </div>
   </div>
   <div id="err" class="err" style="display:none"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <section id="vImp"><ol class="big" id="listImp" aria-label="주요 기사"></ol><div class="more" id="moreImp"></div></section>
 
@@ -215,18 +217,31 @@
   document.querySelectorAll("#vAll .chip").forEach((b) => b.addEventListener("click", () => { state.region = b.dataset.r; state.limitAll = PAGE_ALL; renderAll(); }));
 
   /* ── 데이터 ── */
+  let lastCheck = 0;
+  const checked = () => { if (!lastCheck) return ""; const q = parts(lastCheck); return ` · 확인 ${pad(q.h)}:${pad(q.mi)}`; };
   function setUpdated() {
-    if (!DATA.updated) { $("upd").textContent = "새 기사 대기 중"; return; }
+    if (!DATA.updated) { $("upd").textContent = "새 기사 대기 중" + checked(); return; }
     const t = Date.parse(DATA.updated), p = parts(t), min = Math.max(0, Math.round((Date.now() - t) / 60000));
-    $("upd").textContent = `새 기사 반영 ${pad(p.mo)}/${pad(p.d)} ${pad(p.h)}:${pad(p.mi)} (${min < 1 ? "방금" : min < 60 ? min + "분 전" : min < 1440 ? Math.floor(min / 60) + "시간 전" : Math.floor(min / 1440) + "일 전"})`;
+    $("upd").textContent = `새 기사 반영 ${pad(p.mo)}/${pad(p.d)} ${pad(p.h)}:${pad(p.mi)} (${min < 1 ? "방금" : min < 60 ? min + "분 전" : min < 1440 ? Math.floor(min / 60) + "시간 전" : Math.floor(min / 1440) + "일 전"})` + checked();
   }
-  let lastLoad = 0;
+  let lastLoad = 0, firstLoadDone = false, toastTimer = null;
+  function notify(n) {
+    const t = $("toast"); t.textContent = `새 기사 ${n}건 반영됨 (눌러서 닫기)`; t.style.display = "block";
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.display = "none"; }, 15000);
+    t.onclick = () => { t.style.display = "none"; };
+  }
   async function load() {
     const w = document.querySelector(".wrap"); w.classList.add("busy");
     try {
       const res = await fetch("data.json?t=" + Date.now(), { cache: "no-store" });
       if (!res.ok) throw new Error("HTTP " + res.status);
-      DATA = await res.json(); $("err").style.display = "none";
+      const next = await res.json(); $("err").style.display = "none";
+      if (firstLoadDone) {
+        const known = new Set(DATA.items.map((i) => i.link));
+        const added = next.items.filter((i) => !known.has(i.link)).length;
+        if (added > 0) notify(added);
+      }
+      DATA = next; firstLoadDone = true; lastCheck = Date.now();
     } catch (e) {
       $("err").style.display = "block";
       $("err").textContent = location.protocol === "file:"
@@ -235,7 +250,7 @@
     }
     lastLoad = Date.now(); w.classList.remove("busy"); setUpdated(); render();
   }
-  setInterval(load, 3 * 60 * 1000);
+  setInterval(load, 60 * 1000);
   setInterval(setUpdated, 30 * 1000);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && Date.now() - lastLoad > 60 * 1000) load();
