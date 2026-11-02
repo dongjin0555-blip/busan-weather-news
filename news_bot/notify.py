@@ -155,8 +155,10 @@ def run_window(token, chat_id, since, until):
 
 
 def within_hours(now=None):
-    """KST 09:00~18:30 (18:00 슬롯이 조금 늦어져도 허용)."""
+    """평일(월~금) KST 09:00~18:30 (18:00 슬롯이 조금 늦어져도 허용)."""
     now = now or datetime.now(KST)
+    if now.weekday() >= 5:  # 토·일
+        return False
     return C.COLLECT_START_HOUR * 60 <= now.hour * 60 + now.minute <= C.COLLECT_END_HOUR * 60 + 30
 
 
@@ -178,7 +180,7 @@ def main():
     dry = not (token and chat_id)
     if "--only-hours" in sys.argv and not within_hours():
         # GitHub 스케줄이 늦게 실행되어도 운영 시간 밖에는 전송하지 않음 (다음 운영 시간에 이어서 전송)
-        print("운영 시간(09:00~18:30 KST) 밖이라 건너뜁니다")
+        print("운영 시간(평일 09:00~18:30 KST) 밖이라 건너뜁니다")
         return
     if os.environ.get("WIN_SINCE") and os.environ.get("WIN_UNTIL"):
         if dry:

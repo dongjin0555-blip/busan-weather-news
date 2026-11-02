@@ -1,8 +1,8 @@
 name: weather-news-telegram
 on:
   schedule:
-    - cron: "*/15 0-8 * * *"   # UTC 00:00~08:45 = KST 09:00~17:45, 15분 간격
-    - cron: "0 9 * * *"        # UTC 09:00 = KST 18:00 (마지막 실행)
+    - cron: "*/15 0-8 * * 1-5" # 평일만, UTC 00:00~08:45 = KST 09:00~17:45, 15분 간격 (보조)
+    - cron: "0 9 * * 1-5"      # 평일만, UTC 09:00 = KST 18:00 (마지막 실행)
   workflow_dispatch:
     inputs:
       test:
