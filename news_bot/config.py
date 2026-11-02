@@ -35,8 +35,13 @@ KIND_DATA = "자료 확인"       # C 유형 사고 단독(원인 불명)   → 
 KINDS = [KIND_CAUSE, KIND_ALERT, KIND_DATA]
 KEYWORDS = sorted(set(CAUSE + DAMAGE + NEEDS_DATA))
 
-# 뉴스 소스: 연합뉴스 RSS (여러 개를 쓰려면 목록에 추가)
-FEED_URLS = ["https://www.yna.co.kr/rss/news.xml"]
+# 뉴스 소스: 연합뉴스 RSS. news.xml 은 최근 약 3시간치뿐이라, 약 15~16시간치를 담는 지방(local)·사회(society)를 함께 사용
+# (같은 기사는 링크 기준으로 한 번만 처리)
+FEED_URLS = [
+    "https://www.yna.co.kr/rss/news.xml",     # 전체 최신 (가장 빠름, 약 3시간치)
+    "https://www.yna.co.kr/rss/local.xml",    # 지방 (약 16시간치, 지역 기사 비중 높음)
+    "https://www.yna.co.kr/rss/society.xml",  # 사회 (약 15시간치, 사건·사고)
+]
 
 # 주요 기사 점수: 제목/요약에 포함된 용어 가중치 합이 IMPORTANT_MIN 이상이면 '주요 기사'
 IMPORTANT_TERMS = {
