@@ -8,6 +8,12 @@ on:
       test:
         description: "true 이면 최신 기사 1건을 테스트로 전송(이력 변경 없음)"
         default: "false"
+      since:
+        description: "구간 테스트 시작 (KST, 예: 2026-11-02 00:00) - until 과 함께 입력"
+        default: ""
+      until:
+        description: "구간 테스트 끝 (KST, 예: 2026-11-02 09:00)"
+        default: ""
 permissions:
   contents: write
 concurrency: news
@@ -22,6 +28,8 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WIN_SINCE: ${{ inputs.since }}
+          WIN_UNTIL: ${{ inputs.until }}
       - name: 전송 이력 저장
         run: |
           git config user.name "news-bot"; git config user.email "news-bot@users.noreply.github.com"

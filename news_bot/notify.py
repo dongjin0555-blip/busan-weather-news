@@ -115,6 +115,24 @@ def write_data(items, rejected):
     DATA_FILE.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
 
 
+def run_window(token, chat_id, since, until):
+    """구간 테스트: KST 'YYYY-MM-DD HH:MM' 두 시각 사이에 발행된 기사를 묶음으로 전송 (이력/데이터 파일은 건드리지 않음)."""
+    def parse(v):
+        return datetime.strptime(v.strip(), "%Y-%m-%d %H:%M").replace(tzinfo=KST)
+    t0, t1 = parse(since), parse(until)
+    items = [i for i in scrape.collect(max_age_hours=96)
+             if t0 <= datetime.fromisoformat(i["dt"]) <= t1]
+    label = f"{t0:%m/%d %H:%M}~{t1:%m/%d %H:%M}"
+    print(f"window {label}: {len(items)} items")
+    if not items:
+        tg_send(token, chat_id, f"✅ <b>구간 테스트</b> ({label})\n해당 구간에 연합뉴스 RSS에서 가져올 수 있는 "
+                "조건 일치 기사가 없습니다. (RSS는 최신 기사 일부만 제공해, 오래된 기사는 이미 빠졌을 수 있습니다)")
+        return
+    for m in build_digest(items):
+        tg_send(token, chat_id, f"✅ <b>구간 테스트</b> ({label})\n" + m)
+    print("sent window test:", [i["title"] for i in items])
+
+
 def within_hours(now=None):
     """KST 09:00~18:30 (18:00 슬롯이 조금 늦어져도 허용)."""
     now = now or datetime.now(KST)
@@ -128,6 +146,10 @@ def main():
         # GitHub 스케줄이 늦게 실행되어도 운영 시간 밖에는 전송하지 않음 (다음 운영 시간에 이어서 전송)
         print("운영 시간(09:00~18:30 KST) 밖이라 건너뜁니다")
         return
+    if os.environ.get("WIN_SINCE") and os.environ.get("WIN_UNTIL"):
+        if dry:
+            raise SystemExit("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID 가 없습니다")
+        return run_window(token, chat_id, os.environ["WIN_SINCE"], os.environ["WIN_UNTIL"])
     if "--test" in sys.argv:
         if dry:
             raise SystemExit("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID 가 없습니다")
