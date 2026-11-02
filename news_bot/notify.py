@@ -182,7 +182,13 @@ def within_hours(now=None):
 def debug_feed(spec=""):
     """RSS 점검용. spec 이 http 로 시작하면 쉼표로 구분한 후보 주소들을 점검, 아니면 설정된 FEED_URLS 점검.
     각 주소: 접속 여부, 건수, 가장 최신/오래된 기사 시각, 부산·울산·경남 해당 건수, 해당 기사 제목 일부. 전송/저장 없음."""
-    urls = [u.strip() for u in spec.split(",") if u.strip()] if spec.startswith("http") else C.FEED_URLS
+    if spec == "probe":
+        base = "https://www.yna.co.kr/rss/"
+        urls = [base + n + ".xml" for n in ("news", "local", "society", "economy", "industry", "politics")]
+    elif spec.startswith("http"):
+        urls = [u.strip() for u in spec.split(",") if u.strip()]
+    else:
+        urls = C.FEED_URLS
     for url in urls:
         try:
             items = list(scrape.fetch_rss(url).iter("item"))
