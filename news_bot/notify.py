@@ -152,7 +152,20 @@ def within_hours(now=None):
     return C.COLLECT_START_HOUR * 60 <= now.hour * 60 + now.minute <= C.COLLECT_END_HOUR * 60 + 30
 
 
+def debug_feed():
+    """원본 RSS 요약 형식 점검용 (지역 분류 개선 근거). 전송/저장 없음."""
+    for url in C.FEED_URLS:
+        items = list(scrape.fetch_rss(url).iter("item"))
+        print(f"feed {url}: {len(items)} items")
+        for it in items[:12]:
+            print("T:", scrape.clean(it.findtext("title")))
+            print("D:", scrape.clean(it.findtext("description"))[:160])
+            print("-")
+
+
 def main():
+    if os.environ.get("DEBUG_FEED"):
+        return debug_feed()
     token, chat_id = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
     dry = not (token and chat_id)
     if "--only-hours" in sys.argv and not within_hours():

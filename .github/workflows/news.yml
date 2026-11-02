@@ -14,6 +14,9 @@ on:
       until:
         description: "구간 테스트 끝 (KST, 예: 2026-11-02 09:00)"
         default: ""
+      debug:
+        description: "1 이면 RSS 원본 요약 형식을 로그에 출력(전송 없음)"
+        default: ""
 permissions:
   contents: write
 concurrency: news
@@ -30,6 +33,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           WIN_SINCE: ${{ inputs.since }}
           WIN_UNTIL: ${{ inputs.until }}
+          DEBUG_FEED: ${{ inputs.debug }}
       - name: 전송 이력 저장
         run: |
           git config user.name "news-bot"; git config user.email "news-bot@users.noreply.github.com"
