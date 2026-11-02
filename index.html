@@ -134,8 +134,14 @@
     }
     w.classList.remove("busy"); setUpdated(); render();
   }
-  setInterval(load, 5 * 60 * 1000);
+  let lastLoad = Date.now();
+  const reload = async () => { await load(); lastLoad = Date.now(); };
+  setInterval(reload, 3 * 60 * 1000);
   setInterval(setUpdated, 30 * 1000);
+  // 백그라운드 탭은 타이머가 늦어지므로, 탭으로 돌아오는 순간 오래됐으면 바로 새로 읽음
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && Date.now() - lastLoad > 60 * 1000) reload();
+  });
 
   const MODES = ["auto", "light", "dark"], LABEL = { auto: "자동", light: "라이트", dark: "다크" };
   let mode = "auto"; try { mode = localStorage.getItem("news-theme") || "auto"; } catch (e) {}
