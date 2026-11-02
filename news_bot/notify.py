@@ -103,7 +103,10 @@ def run_test(token, chat_id):
 
 
 def write_data(items, rejected):
-    """대시보드용 누적 데이터 저장: 기존 기사와 병합하고 오래된 것은 정리."""
+    """대시보드용 누적 데이터 저장. 새 기사(또는 보관기간 정리)로 기사 목록이 바뀔 때만 파일을 갱신한다.
+
+    매 실행마다 파일이 바뀌면 커밋·Pages 배포가 과도하게 일어나므로, 기사 목록이 그대로면 쓰지 않는다.
+    """
     try:
         old = json.loads(DATA_FILE.read_text())
     except Exception:
@@ -114,18 +117,23 @@ def write_data(items, rejected):
     for it in items:
         news[it["link"]] = {k: it[k] for k in ("link", "title", "dt", "regions", "categories",
                                                 "keywords", "score", "important")}
+    merged = sorted((i for i in news.values() if keep(i["dt"], KEEP_DAYS)), key=lambda i: i["dt"], reverse=True)
+    if merged == old.get("items") and old.get("updated"):
+        print(f"data.json unchanged (items={len(merged)})")
+        return False
     rej = {i["link"]: i for i in old.get("rejected", [])}
     for it in rejected:
         rej[it["link"]] = {k: it[k] for k in ("link", "title", "dt", "regions", "reason")}
     out = {
         "updated": now.isoformat(),
-        "items": sorted((i for i in news.values() if keep(i["dt"], KEEP_DAYS)),
-                        key=lambda i: i["dt"], reverse=True),
+        "items": merged,
         "rejected": sorted((i for i in rej.values() if keep(i["dt"], KEEP_REJECTED_DAYS)),
                            key=lambda i: i["dt"], reverse=True)[:MAX_REJECTED],
     }
     DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
     DATA_FILE.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
+    print(f"data.json updated (items={len(merged)})")
+    return True
 
 
 def run_window(token, chat_id, since, until):
@@ -184,7 +192,9 @@ def main():
     sent = {} if first else json.loads(SENT_FILE.read_text())
 
     items = scrape.collect()
-    write_data(items, scrape.rejected)  # 전송 성공 여부와 무관하게 대시보드 데이터는 항상 갱신
+    write_data(items, scrape.rejected)  # 전송 성공 여부와 무관하게 대시보드 데이터 갱신(변경 있을 때만)
+    for r in scrape.rejected[:40]:      # 탈락 기사는 로그로 확인 (키워드 튜닝용, 커밋하지 않음)
+        print(f"  rejected [{'/'.join(r['regions'])}] {r['reason']}: {r['title'][:50]}")
     if first:
         limit = (datetime.now(timezone.utc) - timedelta(hours=FIRST_RUN_HOURS)).isoformat()
         for it in items:  # 첫 실행: 오래된 기사는 보낸 것으로 처리해 폭주 방지

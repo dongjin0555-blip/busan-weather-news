@@ -216,9 +216,9 @@
 
   /* ── 데이터 ── */
   function setUpdated() {
-    if (!DATA.updated) { $("upd").textContent = "수집 대기 중"; return; }
+    if (!DATA.updated) { $("upd").textContent = "새 기사 대기 중"; return; }
     const t = Date.parse(DATA.updated), p = parts(t), min = Math.max(0, Math.round((Date.now() - t) / 60000));
-    $("upd").textContent = `${pad(p.mo)}/${pad(p.d)} ${pad(p.h)}:${pad(p.mi)} 업데이트 (${min < 1 ? "방금" : min < 60 ? min + "분 전" : Math.floor(min / 60) + "시간 전"})`;
+    $("upd").textContent = `새 기사 반영 ${pad(p.mo)}/${pad(p.d)} ${pad(p.h)}:${pad(p.mi)} (${min < 1 ? "방금" : min < 60 ? min + "분 전" : min < 1440 ? Math.floor(min / 60) + "시간 전" : Math.floor(min / 1440) + "일 전"})`;
   }
   let lastLoad = 0;
   async function load() {
