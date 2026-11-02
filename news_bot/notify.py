@@ -77,7 +77,12 @@ def run_test(token, chat_id):
     items = scrape.collect()
     print(f"collected={len(items)}")
     if not items:
-        raise SystemExit("조건에 맞는 기사가 없습니다 (연합뉴스 RSS 접속/키워드 확인 필요)")
+        # 기사가 없어도 텔레그램 연결 자체는 확인할 수 있게 안내 메시지를 보내고 정상 종료
+        tg_send(token, chat_id, "✅ <b>테스트 전송</b>\n연결은 정상입니다. "
+                "지금 연합뉴스 RSS에 조건(부산·울산·경남 기상·재해)에 맞는 기사가 없습니다. "
+                "기사가 나오면 자동으로 이 채널에 전송됩니다.")
+        print("sent test: no matching articles (connection ok)")
+        return
     pick = sorted(items, key=lambda i: i["dt"])[-3:]
     for m in build_digest(pick):
         tg_send(token, chat_id, "✅ <b>테스트 전송</b>\n" + m)
