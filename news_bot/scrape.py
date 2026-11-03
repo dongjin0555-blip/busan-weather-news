@@ -51,8 +51,12 @@ def split_desc(desc):
     return place, body[:150]
 
 
+DESK_PLACES = ("서울", "세종", "전국")  # 전국 데스크 송고: 본문에 나온 지명을 사건 장소로 인정
+
+
 def _regions(text):
     text = text.replace("부산물", "")  # '영농부산물' 등이 부산으로 잡히는 것 방지
+    text = re.sub(r"\S+\s?(?:방향|행)(?=[\s,.…·)]|$)", " ", text)  # '창원 방향', '부산행' 등 목적지는 사건 장소가 아님
     return [r for r, ns in C.REGIONS.items() if any(n in text for n in ns)]
 
 
@@ -65,7 +69,8 @@ def classify(title, desc=""):
     place, body = split_desc(desc)
     text = f"{title} {body}"
     strong = _regions(f"{title} {place}")
-    weak = [r for r in _regions(body) if r not in strong]
+    elsewhere = bool(place) and not any(d in place for d in DESK_PLACES) and not _regions(place)
+    weak = [] if elsewhere else [r for r in _regions(body) if r not in strong]  # 타 지역 송고면 본문 지명 무시
     ex = next((w for w in C.EXCLUDE if w in text), None)
     a = [k for k in C.CAUSE if k in text]
     b = [k for k in C.DAMAGE if k in text]
