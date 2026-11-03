@@ -60,6 +60,13 @@ def _regions(text):
     return [r for r, ns in C.REGIONS.items() if any(n in text for n in ns)]
 
 
+def _fire_ok(c, text):
+    """'화재'류 키워드로만 걸린 기사는 규모·확산·특수시설 신호(또는 'N시간 만에')가 있어야 인정."""
+    if any(k not in C.FIRE_ONLY_TERMS for k in c):
+        return True  # 산불·선박·익수 등 기상 직결 사고 키워드가 함께 있음
+    return any(cue in text for cue in C.FIRE_SCALE_CUES) or bool(re.search(r"\d+\s?시간", text))
+
+
 def classify(title, desc=""):
     """(지역, 분류 라벨 리스트, 키워드, 중요도 점수, 제외 사유) 반환. 분류가 없으면 라벨 리스트는 빈 값.
 
@@ -90,7 +97,7 @@ def classify(title, desc=""):
         kinds = [C.KIND_CAUSE]
     elif is_alert:
         kinds = [C.KIND_ALERT]
-    elif c and any(m in text for m in C.INCIDENT_MARKERS):
+    elif c and any(m in text for m in C.INCIDENT_MARKERS) and _fire_ok(c, text):
         kinds = [C.KIND_DATA]
     score = sum(w for t, w in C.IMPORTANT_TERMS.items() if t in text)
     reason = f"제외어({ex})" if ex else ("지역 불일치" if not regions else "기상/사고 조합 없음")
