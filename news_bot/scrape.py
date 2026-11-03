@@ -70,6 +70,9 @@ def classify(title, desc=""):
     text = f"{title} {body}"
     # '포장마차'의 '장마'가 장마철로 읽히는 등 글자 일치 오류 방지 (기상·사고 키워드 판정용 본문에서만 제거)
     text = text.replace("포장마차", " ").replace("포차", " ")
+    # 조직·직책 이름은 사건이 아님: '산불진화대', '산불감시원' 의 '산불'·'진화' 일치 방지
+    for noise in ("진화대", "산불감시", "감시원", "의용소방대"):
+        text = text.replace(noise, " ")
     strong = _regions(f"{title} {place}")
     elsewhere = bool(place) and not any(d in place for d in DESK_PLACES) and not _regions(place)
     weak = [] if elsewhere else [r for r in _regions(body) if r not in strong]  # 타 지역 송고면 본문 지명 무시
