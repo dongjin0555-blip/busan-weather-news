@@ -68,6 +68,8 @@ def classify(title, desc=""):
     """
     place, body = split_desc(desc)
     text = f"{title} {body}"
+    # '포장마차'의 '장마'가 장마철로 읽히는 등 글자 일치 오류 방지 (기상·사고 키워드 판정용 본문에서만 제거)
+    text = text.replace("포장마차", " ").replace("포차", " ")
     strong = _regions(f"{title} {place}")
     elsewhere = bool(place) and not any(d in place for d in DESK_PLACES) and not _regions(place)
     weak = [] if elsewhere else [r for r in _regions(body) if r not in strong]  # 타 지역 송고면 본문 지명 무시
