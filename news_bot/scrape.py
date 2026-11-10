@@ -83,6 +83,11 @@ def classify(title, desc=""):
     strong = _regions(f"{title} {place}")
     elsewhere = bool(place) and not any(d in place for d in DESK_PLACES) and not _regions(place)
     weak = [] if elsewhere else [r for r in _regions(body) if r not in strong]  # 타 지역 송고면 본문 지명 무시
+    # 제목에 기상·재해·사고 키워드가 하나라도 있어야 기사로 인정 (본문에만 나온 '블랙아이스 우려' 같은 언급으로는 통과 불가)
+    ttext = title.replace("포장마차", " ").replace("포차", " ")
+    for noise in ("진화대", "산불감시", "감시원", "의용소방대"):
+        ttext = ttext.replace(noise, " ")
+    title_signal = any(k in ttext for k in C.KEYWORDS)
     ex = next((w for w in C.EXCLUDE if w in text), None)
     a = [k for k in C.CAUSE if k in text]
     b = [k for k in C.DAMAGE if k in text]
@@ -91,7 +96,7 @@ def classify(title, desc=""):
     is_alert = any(t in text for t in C.ALERT_TERMS) and any(t in text for t in C.ALERT_ACTIONS)
     regions = strong + (weak if (a or b or c or is_alert) else [])
     kinds = []
-    if ex or not regions:
+    if ex or not regions or not title_signal:
         pass
     elif is_cause:
         kinds = [C.KIND_CAUSE]
@@ -100,7 +105,8 @@ def classify(title, desc=""):
     elif c and any(m in text for m in C.INCIDENT_MARKERS) and _fire_ok(c, text):
         kinds = [C.KIND_DATA]
     score = sum(w for t, w in C.IMPORTANT_TERMS.items() if t in text)
-    reason = f"제외어({ex})" if ex else ("지역 불일치" if not regions else "기상/사고 조합 없음")
+    reason = (f"제외어({ex})" if ex else "지역 불일치" if not regions
+              else "제목에 기상·사고 키워드 없음" if not title_signal else "기상/사고 조합 없음")
     return regions, kinds, list(dict.fromkeys(a + b + c)), score, reason
 
 
