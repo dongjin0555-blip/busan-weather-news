@@ -45,7 +45,7 @@
 
   .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; margin-bottom: 4px; color: var(--ink-2); font-size: 13px; }
   .top .left { font-weight: 600; }
-  .top .right { display: flex; align-items: center; gap: 10px; }
+  .top .right { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
   .ghost { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 3px 10px; cursor: pointer; font-size: 12px; color: var(--ink-2); }
   .ghost:hover { background: var(--wash); }
 
@@ -79,6 +79,8 @@
     <span class="left" id="count"></span>
     <div class="right">
       <span id="upd" aria-live="polite">불러오는 중…</span>
+      <button class="ghost" type="button" id="notif" aria-pressed="false">알림: 꺼짐</button>
+      <button class="ghost" type="button" id="snd" aria-pressed="false">소리: 꺼짐</button>
       <button class="ghost" type="button" id="theme" aria-label="화면 모드 변경">화면: 자동</button>
     </div>
   </div>
@@ -152,6 +154,60 @@
 
   let lastCheck = 0, lastLoad = 0, firstLoadDone = false, toastTimer = null;
   const checked = () => { if (!lastCheck) return ""; const q = parts(lastCheck); return ` · 확인 ${pad(q.h)}:${pad(q.mi)}`; };
+  // ── 새 기사 알림: 브라우저 알림 · 탭 제목 · 소리 (탭이 열려 있으면 창을 내려 둬도 동작) ──
+  const BASE_TITLE = document.title;
+  let unseen = 0, notifOn = false, sndOn = false, actx = null;
+  try { notifOn = localStorage.getItem("news-notif") === "1"; sndOn = localStorage.getItem("news-snd") === "1"; } catch (e) {}
+  const canNotify = () => "Notification" in window;
+  function paintBtns() {
+    const on = notifOn && canNotify() && Notification.permission === "granted";
+    $("notif").textContent = canNotify() ? "알림: " + (on ? "켜짐" : Notification.permission === "denied" ? "차단됨" : "꺼짐") : "알림: 미지원";
+    $("notif").setAttribute("aria-pressed", String(on));
+    $("snd").textContent = "소리: " + (sndOn ? "켜짐" : "꺼짐");
+    $("snd").setAttribute("aria-pressed", String(sndOn));
+  }
+  function beep() {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = "sine"; o.frequency.value = 880; g.gain.value = 0.15;
+      o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + 0.35);
+    } catch (e) {}
+  }
+  function popup(list) {
+    if (!(notifOn && canNotify() && Notification.permission === "granted")) return;
+    list.slice(0, 3).forEach((i) => {
+      try {
+        const n = new Notification(i.title, { body: `${i.regions.join("·")} · ${i.categories.join("·")}`, tag: i.link, requireInteraction: !!i.important });
+        n.onclick = () => { window.focus(); window.open(safeUrl(i.link), "_blank", "noopener"); n.close(); };
+      } catch (e) {}
+    });
+    if (list.length > 3) { try { new Notification(`새 기사 ${list.length}건`, { body: "대시보드에서 확인하세요", tag: "news-more" }); } catch (e) {} }
+  }
+  function alertNew(list) {
+    unseen += list.length; document.title = `(${unseen}) ${BASE_TITLE}`;
+    popup(list); if (sndOn) beep();
+  }
+  function clearUnseen() { if (unseen) { unseen = 0; document.title = BASE_TITLE; } }
+  window.addEventListener("focus", clearUnseen);
+  $("notif").addEventListener("click", async () => {
+    if (!canNotify()) return;
+    if (notifOn && Notification.permission === "granted") { notifOn = false; }
+    else {
+      const p = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+      notifOn = p === "granted";
+      if (notifOn) try { new Notification("알림이 켜졌습니다", { body: "새 기사가 올라오면 이렇게 알려드립니다" }); } catch (e) {}
+    }
+    try { localStorage.setItem("news-notif", notifOn ? "1" : "0"); } catch (e) {}
+    paintBtns();
+  });
+  $("snd").addEventListener("click", () => {
+    sndOn = !sndOn; try { localStorage.setItem("news-snd", sndOn ? "1" : "0"); } catch (e) {}
+    if (sndOn) beep(); paintBtns();
+  });
+  paintBtns();
+
   function notify(n) {
     const t = $("toast"); t.textContent = `새 기사 ${n}건 반영됨 (눌러서 닫기)`; t.style.display = "block";
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.display = "none"; }, 15000);
@@ -170,8 +226,8 @@
       const next = await res.json(); $("err").style.display = "none";
       if (firstLoadDone) {
         const known = new Set(DATA.items.map((i) => i.link));
-        const added = next.items.filter((i) => !known.has(i.link)).length;
-        if (added > 0) notify(added);
+        const fresh = next.items.filter((i) => !known.has(i.link));
+        if (fresh.length > 0) { notify(fresh.length); alertNew(fresh); }
       }
       DATA = next; firstLoadDone = true; lastCheck = Date.now();
     } catch (e) {
@@ -182,10 +238,14 @@
     }
     lastLoad = Date.now(); w.classList.remove("busy"); setUpdated(); render();
   }
-  setInterval(load, 60 * 1000);
+  // 창을 내려 두면 브라우저가 일반 타이머를 늦추므로, 워커 타이머로 60초마다 확인 (실패하면 일반 타이머)
+  try {
+    const url = URL.createObjectURL(new Blob(["setInterval(()=>postMessage(1),60000)"], { type: "text/javascript" }));
+    new Worker(url).onmessage = () => load();
+  } catch (e) { setInterval(load, 60 * 1000); }
   setInterval(setUpdated, 30 * 1000);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && Date.now() - lastLoad > 60 * 1000) load();
+    if (document.visibilityState === "visible") { clearUnseen(); if (Date.now() - lastLoad > 60 * 1000) load(); }
   });
 
   const MODES = ["auto", "light", "dark"], LABEL = { auto: "자동", light: "라이트", dark: "다크" };
