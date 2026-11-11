@@ -89,11 +89,11 @@ def classify(title, desc=""):
         ttext = ttext.replace(noise, " ")
     title_signal = any(k in ttext for k in C.KEYWORDS)
     ex = next((w for w in C.EXCLUDE if w in text), None)
-    a = [k for k in C.CAUSE if k in text]
+    a = [k for k in C.CAUSE if k in ttext]  # 기상 원인어는 제목에 있을 때만 인정 (본문의 '블랙아이스 우려' 등 무시)
     b = [k for k in C.DAMAGE if k in text]
     c = [k for k in C.NEEDS_DATA if k in text]
     is_cause = bool(a and (b or c))
-    is_alert = any(t in text for t in C.ALERT_TERMS) and any(t in text for t in C.ALERT_ACTIONS)
+    is_alert = any(t in ttext for t in C.ALERT_TERMS) and any(t in text for t in C.ALERT_ACTIONS)
     regions = strong + (weak if (a or b or c or is_alert) else [])
     kinds = []
     if ex or not regions or not title_signal:
