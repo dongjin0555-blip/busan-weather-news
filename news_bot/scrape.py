@@ -67,10 +67,15 @@ def _strip_noise(s):
     return s
 
 
+def _is_prep(ttext):
+    """대비·예방·우려성 제목: 실제 사건 표시어(발생·사망·발효 등)가 제목에 없으면 사건이 아님."""
+    return any(w in ttext for w in C.PREP_WORDS) and not any(m in ttext for m in C.INCIDENT_MARKERS + C.ALERT_ACTIONS)
+
+
 def title_ok(title):
     """제목만으로 본 최소 조건: 기상·재해·사고 키워드가 있고 제외어가 없어야 함 (저장된 기사 재점검용)."""
     t = _strip_noise(title)
-    return any(k in t for k in C.KEYWORDS) and not any(w in t for w in C.EXCLUDE)
+    return any(k in t for k in C.KEYWORDS) and not any(w in t for w in C.EXCLUDE) and not _is_prep(t)
 
 
 def _fire_ok(c, text):
@@ -101,8 +106,7 @@ def classify(title, desc=""):
     is_cause = bool(a and (b or c))
     is_alert = any(t in ttext for t in C.ALERT_TERMS) and any(t in text for t in C.ALERT_ACTIONS)
     regions = strong + (weak if (a or b or c or is_alert) else [])
-    # 대비·예방·우려성 제목은 실제 사건 표시어(발생·사망·발효 등)가 제목에 없으면 사건이 아님
-    prep = any(w in ttext for w in C.PREP_WORDS) and not any(m in ttext for m in C.INCIDENT_MARKERS + C.ALERT_ACTIONS)
+    prep = _is_prep(ttext)
     kinds = []
     if ex or not regions or not title_signal or prep:
         pass
