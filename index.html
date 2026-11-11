@@ -86,8 +86,8 @@
     <span class="left" id="count"></span>
     <div class="right">
       <span id="upd" aria-live="polite">불러오는 중…</span>
-      <label class="sw" for="snd"><span>새 기사 소리</span>
-        <input type="checkbox" id="snd" role="switch" aria-label="새 기사 알림 소리">
+      <label class="sw" for="snd"><span id="sndlbl">소리</span>
+        <input type="checkbox" id="snd" role="switch" aria-label="새 기사 알림 소리 켜기/끄기">
         <span class="track" aria-hidden="true"><span class="knob"></span></span>
       </label>
     </div>
@@ -134,8 +134,7 @@
   function render() {
     const items = DATA.items.slice().sort((a, b) => Date.parse(b.dt) - Date.parse(a.dt));
     const box = $("list"); box.replaceChildren(); $("more").replaceChildren();
-    const imp = items.filter((i) => i.important).length;
-    $("count").textContent = items.length ? `총 ${items.length}건 · 주요 ${imp}건` : "";
+    $("count").textContent = items.length ? `총 ${items.length}건` : "";
     if (!items.length) {
       box.append(el("div", { class: "empty", text: DATA.updated ? "표시할 기사가 없습니다" : "수집 대기 중입니다" }));
       return;
@@ -181,9 +180,10 @@
   }
   function clearUnseen() { if (unseen) { unseen = 0; document.title = BASE_TITLE; } }
   window.addEventListener("focus", clearUnseen);
-  $("snd").checked = sndOn;
+  const paintSnd = () => { $("snd").checked = sndOn; $("sndlbl").textContent = sndOn ? "소리" : "무음"; };
+  paintSnd();
   $("snd").addEventListener("change", () => {
-    sndOn = $("snd").checked; try { localStorage.setItem("news-snd", sndOn ? "1" : "0"); } catch (e) {}
+    sndOn = $("snd").checked; paintSnd(); try { localStorage.setItem("news-snd", sndOn ? "1" : "0"); } catch (e) {}
     if (sndOn) beep();
   });
   // 브라우저는 사용자가 페이지를 한 번 누르기 전에는 소리를 막으므로, 첫 클릭 때 소리 장치를 미리 깨워 둠
@@ -195,9 +195,9 @@
     t.onclick = () => { t.style.display = "none"; };
   }
   function setUpdated() {
-    if (!DATA.updated) { $("upd").textContent = "새 기사 대기 중" + checked(); return; }
+    if (!DATA.updated) { $("upd").textContent = "마지막 업데이트 없음" + checked(); return; }
     const t = Date.parse(DATA.updated), p = parts(t), min = Math.max(0, Math.round((Date.now() - t) / 60000));
-    $("upd").textContent = `새 기사 반영 ${pad(p.mo)}/${pad(p.d)} ${pad(p.h)}:${pad(p.mi)} (${min < 1 ? "방금" : min < 60 ? min + "분 전" : min < 1440 ? Math.floor(min / 60) + "시간 전" : Math.floor(min / 1440) + "일 전"})` + checked();
+    $("upd").textContent = `마지막 업데이트 ${pad(p.mo)}/${pad(p.d)} ${pad(p.h)}:${pad(p.mi)} (${min < 1 ? "방금" : min < 60 ? min + "분 전" : min < 1440 ? Math.floor(min / 60) + "시간 전" : Math.floor(min / 1440) + "일 전"})` + checked();
   }
   async function load() {
     const w = document.querySelector(".wrap"); w.classList.add("busy");
