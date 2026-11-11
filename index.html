@@ -49,6 +49,13 @@
   .ghost { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 3px 10px; cursor: pointer; font-size: 12px; color: var(--ink-2); }
   .ghost:hover { background: var(--wash); }
 
+  .sw { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ink); user-select: none; }
+  .sw input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .sw .track { position: relative; width: 52px; height: 30px; border-radius: 999px; background: #e0463f; transition: background .2s; flex: none; }
+  .sw .knob { position: absolute; top: 2px; left: 2px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); transition: transform .2s; }
+  .sw input:checked + .track { background: #34c759; }
+  .sw input:checked + .track .knob { transform: translateX(22px); }
+  .sw input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 3px; }
   h2.day { margin: 26px 0 4px; font-size: 14px; font-weight: 700; color: var(--ink-2); letter-spacing: .02em; }
   ol.feed { list-style: none; margin: 0; padding: 0; }
 
@@ -79,9 +86,10 @@
     <span class="left" id="count"></span>
     <div class="right">
       <span id="upd" aria-live="polite">불러오는 중…</span>
-      <button class="ghost" type="button" id="notif" aria-pressed="false">알림: 꺼짐</button>
-      <button class="ghost" type="button" id="snd" aria-pressed="false">소리: 꺼짐</button>
-      <button class="ghost" type="button" id="theme" aria-label="화면 모드 변경">화면: 자동</button>
+      <label class="sw" for="snd"><span>새 기사 소리</span>
+        <input type="checkbox" id="snd" role="switch" aria-label="새 기사 알림 소리">
+        <span class="track" aria-hidden="true"><span class="knob"></span></span>
+      </label>
     </div>
   </div>
   <div id="err" class="err" style="display:none"></div>
@@ -156,57 +164,30 @@
   const checked = () => { if (!lastCheck) return ""; const q = parts(lastCheck); return ` · 확인 ${pad(q.h)}:${pad(q.mi)}`; };
   // ── 새 기사 알림: 브라우저 알림 · 탭 제목 · 소리 (탭이 열려 있으면 창을 내려 둬도 동작) ──
   const BASE_TITLE = document.title;
-  let unseen = 0, notifOn = false, sndOn = false, actx = null;
-  try { notifOn = localStorage.getItem("news-notif") === "1"; sndOn = localStorage.getItem("news-snd") === "1"; } catch (e) {}
-  const canNotify = () => "Notification" in window;
-  function paintBtns() {
-    const on = notifOn && canNotify() && Notification.permission === "granted";
-    $("notif").textContent = canNotify() ? "알림: " + (on ? "켜짐" : Notification.permission === "denied" ? "차단됨" : "꺼짐") : "알림: 미지원";
-    $("notif").setAttribute("aria-pressed", String(on));
-    $("snd").textContent = "소리: " + (sndOn ? "켜짐" : "꺼짐");
-    $("snd").setAttribute("aria-pressed", String(sndOn));
-  }
+  let unseen = 0, sndOn = true, actx = null;   // 기본값: 소리 켜짐
+  try { const v = localStorage.getItem("news-snd"); if (v !== null) sndOn = v === "1"; } catch (e) {}
   function beep() {
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       if (actx.state === "suspended") actx.resume();
       const o = actx.createOscillator(), g = actx.createGain();
-      o.type = "sine"; o.frequency.value = 880; g.gain.value = 0.15;
-      o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + 0.35);
+      o.type = "sine"; o.frequency.value = 880; g.gain.value = 0.2;
+      o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + 0.4);
     } catch (e) {}
-  }
-  function popup(list) {
-    if (!(notifOn && canNotify() && Notification.permission === "granted")) return;
-    list.slice(0, 3).forEach((i) => {
-      try {
-        const n = new Notification(i.title, { body: `${i.regions.join("·")} · ${i.categories.join("·")}`, tag: i.link, requireInteraction: !!i.important });
-        n.onclick = () => { window.focus(); window.open(safeUrl(i.link), "_blank", "noopener"); n.close(); };
-      } catch (e) {}
-    });
-    if (list.length > 3) { try { new Notification(`새 기사 ${list.length}건`, { body: "대시보드에서 확인하세요", tag: "news-more" }); } catch (e) {} }
   }
   function alertNew(list) {
     unseen += list.length; document.title = `(${unseen}) ${BASE_TITLE}`;
-    popup(list); if (sndOn) beep();
+    if (sndOn) beep();
   }
   function clearUnseen() { if (unseen) { unseen = 0; document.title = BASE_TITLE; } }
   window.addEventListener("focus", clearUnseen);
-  $("notif").addEventListener("click", async () => {
-    if (!canNotify()) return;
-    if (notifOn && Notification.permission === "granted") { notifOn = false; }
-    else {
-      const p = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
-      notifOn = p === "granted";
-      if (notifOn) try { new Notification("알림이 켜졌습니다", { body: "새 기사가 올라오면 이렇게 알려드립니다" }); } catch (e) {}
-    }
-    try { localStorage.setItem("news-notif", notifOn ? "1" : "0"); } catch (e) {}
-    paintBtns();
+  $("snd").checked = sndOn;
+  $("snd").addEventListener("change", () => {
+    sndOn = $("snd").checked; try { localStorage.setItem("news-snd", sndOn ? "1" : "0"); } catch (e) {}
+    if (sndOn) beep();
   });
-  $("snd").addEventListener("click", () => {
-    sndOn = !sndOn; try { localStorage.setItem("news-snd", sndOn ? "1" : "0"); } catch (e) {}
-    if (sndOn) beep(); paintBtns();
-  });
-  paintBtns();
+  // 브라우저는 사용자가 페이지를 한 번 누르기 전에는 소리를 막으므로, 첫 클릭 때 소리 장치를 미리 깨워 둠
+  document.addEventListener("pointerdown", () => { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {} }, { once: true });
 
   function notify(n) {
     const t = $("toast"); t.textContent = `새 기사 ${n}건 반영됨 (눌러서 닫기)`; t.style.display = "block";
@@ -248,15 +229,6 @@
     if (document.visibilityState === "visible") { clearUnseen(); if (Date.now() - lastLoad > 60 * 1000) load(); }
   });
 
-  const MODES = ["auto", "light", "dark"], LABEL = { auto: "자동", light: "라이트", dark: "다크" };
-  let mode = "auto"; try { mode = localStorage.getItem("news-theme") || "auto"; } catch (e) {}
-  if (!MODES.includes(mode)) mode = "auto";
-  function applyMode() {
-    if (mode === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", mode);
-    $("theme").textContent = "화면: " + LABEL[mode];
-  }
-  $("theme").addEventListener("click", () => { mode = MODES[(MODES.indexOf(mode) + 1) % 3]; try { localStorage.setItem("news-theme", mode); } catch (e) {} applyMode(); });
-  applyMode();
   load();
 })();
 </script>
