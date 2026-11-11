@@ -60,6 +60,19 @@ def _regions(text):
     return [r for r, ns in C.REGIONS.items() if any(n in text for n in ns)]
 
 
+def _strip_noise(s):
+    """'포장마차'의 '장마', '산불진화대'의 '산불·진화' 처럼 사건이 아닌 글자 일치 제거."""
+    for noise in ("포장마차", "포차", "진화대", "산불감시", "감시원", "의용소방대"):
+        s = s.replace(noise, " ")
+    return s
+
+
+def title_ok(title):
+    """제목만으로 본 최소 조건: 기상·재해·사고 키워드가 있고 제외어가 없어야 함 (저장된 기사 재점검용)."""
+    t = _strip_noise(title)
+    return any(k in t for k in C.KEYWORDS) and not any(w in t for w in C.EXCLUDE)
+
+
 def _fire_ok(c, text):
     """'화재'류 키워드로만 걸린 기사는 규모·확산·특수시설 신호(또는 'N시간 만에')가 있어야 인정."""
     if any(k not in C.FIRE_ONLY_TERMS for k in c):
@@ -74,29 +87,24 @@ def classify(title, desc=""):
     (일반 기사 본문에 곁다리로 나온 지명에 걸리는 오탐 방지).
     """
     place, body = split_desc(desc)
-    text = f"{title} {body}"
-    # '포장마차'의 '장마'가 장마철로 읽히는 등 글자 일치 오류 방지 (기상·사고 키워드 판정용 본문에서만 제거)
-    text = text.replace("포장마차", " ").replace("포차", " ")
-    # 조직·직책 이름은 사건이 아님: '산불진화대', '산불감시원' 의 '산불'·'진화' 일치 방지
-    for noise in ("진화대", "산불감시", "감시원", "의용소방대"):
-        text = text.replace(noise, " ")
+    text = _strip_noise(f"{title} {body}")
     strong = _regions(f"{title} {place}")
     elsewhere = bool(place) and not any(d in place for d in DESK_PLACES) and not _regions(place)
     weak = [] if elsewhere else [r for r in _regions(body) if r not in strong]  # 타 지역 송고면 본문 지명 무시
     # 제목에 기상·재해·사고 키워드가 하나라도 있어야 기사로 인정 (본문에만 나온 '블랙아이스 우려' 같은 언급으로는 통과 불가)
-    ttext = title.replace("포장마차", " ").replace("포차", " ")
-    for noise in ("진화대", "산불감시", "감시원", "의용소방대"):
-        ttext = ttext.replace(noise, " ")
+    ttext = _strip_noise(title)
     title_signal = any(k in ttext for k in C.KEYWORDS)
     ex = next((w for w in C.EXCLUDE if w in text), None)
     a = [k for k in C.CAUSE if k in ttext]  # 기상 원인어는 제목에 있을 때만 인정 (본문의 '블랙아이스 우려' 등 무시)
     b = [k for k in C.DAMAGE if k in text]
-    c = [k for k in C.NEEDS_DATA if k in text]
+    c = [k for k in C.NEEDS_DATA if k in ttext]  # 사고 유형도 제목 기준 (본문 속 '불이 났' 등으로는 통과 불가)
     is_cause = bool(a and (b or c))
     is_alert = any(t in ttext for t in C.ALERT_TERMS) and any(t in text for t in C.ALERT_ACTIONS)
     regions = strong + (weak if (a or b or c or is_alert) else [])
+    # 대비·예방·우려성 제목은 실제 사건 표시어(발생·사망·발효 등)가 제목에 없으면 사건이 아님
+    prep = any(w in ttext for w in C.PREP_WORDS) and not any(m in ttext for m in C.INCIDENT_MARKERS + C.ALERT_ACTIONS)
     kinds = []
-    if ex or not regions or not title_signal:
+    if ex or not regions or not title_signal or prep:
         pass
     elif is_cause:
         kinds = [C.KIND_CAUSE]
@@ -106,7 +114,7 @@ def classify(title, desc=""):
         kinds = [C.KIND_DATA]
     score = sum(w for t, w in C.IMPORTANT_TERMS.items() if t in text)
     reason = (f"제외어({ex})" if ex else "지역 불일치" if not regions
-              else "제목에 기상·사고 키워드 없음" if not title_signal else "기상/사고 조합 없음")
+              else "제목에 기상·사고 키워드 없음" if not title_signal else "대비·예방성 기사" if prep else "기상/사고 조합 없음")
     return regions, kinds, list(dict.fromkeys(a + b + c)), score, reason
 
 

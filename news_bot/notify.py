@@ -130,12 +130,13 @@ def write_data(items, rejected):
         old = {}
     now = datetime.now(timezone.utc)
     keep = lambda dt, days: now - datetime.fromisoformat(dt) <= timedelta(days=days)
-    news = {i["link"]: i for i in old.get("items", [])}
+    # 저장된 기사도 현재 제목 규칙으로 재점검 (규칙이 바뀌면 예전에 통과한 기사가 자동으로 정리됨)
+    news = {i["link"]: i for i in old.get("items", []) if scrape.title_ok(i["title"])}
     for it in items:
         news[it["link"]] = {k: it[k] for k in ("link", "title", "dt", "regions", "categories",
                                                 "keywords", "score", "important")}
     merged = sorted((i for i in news.values() if keep(i["dt"], KEEP_DAYS)), key=lambda i: i["dt"], reverse=True)
-    if merged == old.get("items") and old.get("updated"):
+    if merged == old.get("items") and old.get("updated"):  # (재점검으로 정리된 기사가 있으면 목록이 달라져 갱신됨)
         print(f"data.json unchanged (items={len(merged)})")
         return False
     rej = {i["link"]: i for i in old.get("rejected", [])}
@@ -172,7 +173,7 @@ def run_window(token, chat_id, since, until):
 
 
 def within_hours(now=None):
-    """평일(월~금) KST 09:00~18:30 (18:00 슬롯이 조금 늦어져도 허용)."""
+    """평일(월~금) KST 08:00~18:30 (18:00 슬롯이 조금 늦어져도 허용)."""
     now = now or datetime.now(KST)
     if now.weekday() >= 5:  # 토·일
         return False
@@ -216,7 +217,7 @@ def main():
     dry = not (token and chat_id)
     if "--only-hours" in sys.argv and not within_hours():
         # GitHub 스케줄이 늦게 실행되어도 운영 시간 밖에는 전송하지 않음 (다음 운영 시간에 이어서 전송)
-        print("운영 시간(평일 09:00~18:30 KST) 밖이라 건너뜁니다")
+        print("운영 시간(평일 08:00~18:30 KST) 밖이라 건너뜁니다")
         return
     if os.environ.get("WIN_SINCE") and os.environ.get("WIN_UNTIL"):
         if dry:
