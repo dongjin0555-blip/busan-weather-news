@@ -44,7 +44,10 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 
   .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; margin-bottom: 4px; color: var(--ink-2); font-size: 13px; }
-  .top .left { font-weight: 600; }
+  .top { align-items: flex-end; }
+  .today { font-size: 22px; font-weight: 800; color: var(--ink); letter-spacing: -.01em; line-height: 1.3; }
+  .upd { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+  .cnt { font-weight: 600; font-size: 13px; }
   .top .right { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
   .ghost { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 3px 10px; cursor: pointer; font-size: 12px; color: var(--ink-2); }
   .ghost:hover { background: var(--wash); }
@@ -83,9 +86,12 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <span class="left" id="count"></span>
+    <div class="left">
+      <div id="today" class="today"></div>
+      <div id="upd" class="upd" aria-live="polite">불러오는 중…</div>
+    </div>
     <div class="right">
-      <span id="upd" aria-live="polite">불러오는 중…</span>
+      <span id="count" class="cnt"></span>
       <label class="sw" for="snd"><span id="sndlbl">소리</span>
         <input type="checkbox" id="snd" role="switch" aria-label="새 기사 알림 소리 켜기/끄기">
         <span class="track" aria-hidden="true"><span class="knob"></span></span>
@@ -194,10 +200,15 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.display = "none"; }, 15000);
     t.onclick = () => { t.style.display = "none"; };
   }
+  function setToday() {
+    const p = new Date(Date.now() + KST), w = "일월화수목금토"[p.getUTCDay()];
+    $("today").textContent = `${p.getUTCFullYear()}년 ${p.getUTCMonth() + 1}월 ${p.getUTCDate()}일 (${w})`;
+  }
   function setUpdated() {
-    if (!DATA.updated) { $("upd").textContent = "마지막 업데이트 없음" + checked(); return; }
+    setToday();
+    if (!DATA.updated) { $("upd").textContent = "마지막 업데이트 없음"; return; }
     const t = Date.parse(DATA.updated), p = parts(t), min = Math.max(0, Math.round((Date.now() - t) / 60000));
-    $("upd").textContent = `마지막 업데이트 ${pad(p.mo)}/${pad(p.d)} ${pad(p.h)}:${pad(p.mi)} (${min < 1 ? "방금" : min < 60 ? min + "분 전" : min < 1440 ? Math.floor(min / 60) + "시간 전" : Math.floor(min / 1440) + "일 전"})` + checked();
+    $("upd").textContent = `마지막 업데이트 ${pad(p.mo)}/${pad(p.d)} ${pad(p.h)}:${pad(p.mi)} (${min < 1 ? "방금" : min < 60 ? min + "분 전" : min < 1440 ? Math.floor(min / 60) + "시간 전" : Math.floor(min / 1440) + "일 전"})`;
   }
   async function load() {
     const w = document.querySelector(".wrap"); w.classList.add("busy");
