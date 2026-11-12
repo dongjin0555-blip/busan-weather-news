@@ -70,7 +70,7 @@ def _strip_noise(s):
 def title_ok(title):
     """제목에 제외어가 없는지만 확인 (저장된 기사 재점검용: 제외어 목록이 늘어나면 예전 기사도 정리)."""
     t = _strip_noise(title)
-    return not any(w in t for w in C.EXCLUDE)
+    return not any(w in t for w in C.EXCLUDE + C.TITLE_EXCLUDE)
 
 
 def _fire_ok(c, text):
@@ -91,7 +91,7 @@ def classify(title, desc=""):
     strong = _regions(f"{title} {place}")
     elsewhere = bool(place) and not any(d in place for d in DESK_PLACES) and not _regions(place)
     weak = [] if elsewhere else [r for r in _regions(body) if r not in strong]  # 타 지역 송고면 본문 지명 무시
-    ex = next((w for w in C.EXCLUDE if w in text), None)
+    ex = next((w for w in C.EXCLUDE if w in text), None) or next((w for w in C.TITLE_EXCLUDE if w in _strip_noise(title)), None)
     a = [k for k in C.CAUSE if k in text]
     b = [k for k in C.DAMAGE if k in text]
     c = [k for k in C.NEEDS_DATA if k in text]
