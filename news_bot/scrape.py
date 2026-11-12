@@ -67,15 +67,10 @@ def _strip_noise(s):
     return s
 
 
-def _is_prep(ttext):
-    """대비·예방·우려성 제목: 실제 사건 표시어(발생·사망·발효 등)가 제목에 없으면 사건이 아님."""
-    return any(w in ttext for w in C.PREP_WORDS) and not any(m in ttext for m in C.INCIDENT_MARKERS + C.ALERT_ACTIONS)
-
-
 def title_ok(title):
-    """제목만으로 본 최소 조건: 기상·재해·사고 키워드가 있고 제외어가 없어야 함 (저장된 기사 재점검용)."""
+    """제목에 제외어가 없는지만 확인 (저장된 기사 재점검용: 제외어 목록이 늘어나면 예전 기사도 정리)."""
     t = _strip_noise(title)
-    return any(k in t for k in C.KEYWORDS) and not any(w in t for w in C.EXCLUDE) and not _is_prep(t)
+    return not any(w in t for w in C.EXCLUDE)
 
 
 def _fire_ok(c, text):
@@ -96,19 +91,15 @@ def classify(title, desc=""):
     strong = _regions(f"{title} {place}")
     elsewhere = bool(place) and not any(d in place for d in DESK_PLACES) and not _regions(place)
     weak = [] if elsewhere else [r for r in _regions(body) if r not in strong]  # 타 지역 송고면 본문 지명 무시
-    # 제목에 기상·재해·사고 키워드가 하나라도 있어야 기사로 인정 (본문에만 나온 '블랙아이스 우려' 같은 언급으로는 통과 불가)
-    ttext = _strip_noise(title)
-    title_signal = any(k in ttext for k in C.KEYWORDS)
     ex = next((w for w in C.EXCLUDE if w in text), None)
-    a = [k for k in C.CAUSE if k in ttext]  # 기상 원인어는 제목에 있을 때만 인정 (본문의 '블랙아이스 우려' 등 무시)
+    a = [k for k in C.CAUSE if k in text]
     b = [k for k in C.DAMAGE if k in text]
-    c = [k for k in C.NEEDS_DATA if k in ttext]  # 사고 유형도 제목 기준 (본문 속 '불이 났' 등으로는 통과 불가)
+    c = [k for k in C.NEEDS_DATA if k in text]
     is_cause = bool(a and (b or c))
-    is_alert = any(t in ttext for t in C.ALERT_TERMS) and any(t in text for t in C.ALERT_ACTIONS)
+    is_alert = any(t in text for t in C.ALERT_TERMS) and any(t in text for t in C.ALERT_ACTIONS)
     regions = strong + (weak if (a or b or c or is_alert) else [])
-    prep = _is_prep(ttext)
     kinds = []
-    if ex or not regions or not title_signal or prep:
+    if ex or not regions:
         pass
     elif is_cause:
         kinds = [C.KIND_CAUSE]
@@ -117,8 +108,7 @@ def classify(title, desc=""):
     elif c and any(m in text for m in C.INCIDENT_MARKERS) and _fire_ok(c, text):
         kinds = [C.KIND_DATA]
     score = sum(w for t, w in C.IMPORTANT_TERMS.items() if t in text)
-    reason = (f"제외어({ex})" if ex else "지역 불일치" if not regions
-              else "제목에 기상·사고 키워드 없음" if not title_signal else "대비·예방성 기사" if prep else "기상/사고 조합 없음")
+    reason = f"제외어({ex})" if ex else "지역 불일치" if not regions else "기상/사고 조합 없음"
     return regions, kinds, list(dict.fromkeys(a + b + c)), score, reason
 
 
