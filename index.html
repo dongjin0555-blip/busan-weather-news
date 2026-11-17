@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>부산·울산·경남 기상·재해 뉴스</title>
-<link rel="icon" href="data:,">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <style>
   :root {
     color-scheme: light;
@@ -44,7 +44,8 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 
   .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; margin-bottom: 4px; color: var(--ink-2); font-size: 13px; }
-  .top .left { font-weight: 600; }
+  .top .left { font-weight: 600; display: inline-flex; align-items: center; gap: 10px; }
+  .logo { display: block; border-radius: 9px; }
   .top .right { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
   .ghost { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 3px 10px; cursor: pointer; font-size: 12px; color: var(--ink-2); }
   .ghost:hover { background: var(--wash); }
@@ -83,7 +84,7 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <span class="left" id="count"></span>
+    <span class="left"><img class="logo" src="favicon.svg" alt="NEWS" width="40" height="40"><span id="count"></span></span>
     <div class="right">
       <span id="upd" aria-live="polite">불러오는 중…</span>
       <label class="sw" for="snd"><span id="sndlbl">소리</span>
