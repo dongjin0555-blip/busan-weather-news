@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="NEWS">
-  <rect x="2" y="2" width="96" height="96" rx="15" fill="#ee2024"/>
-  <g fill="none" stroke="#fff" stroke-width="6.5" stroke-linejoin="bevel" stroke-linecap="butt">
-    <path d="M19 45V14L41 45V14"/>
-    <path d="M82 14H60V45H82M60 29.5H78"/>
-    <path d="M18 56L25 86L30 68L35 86L42 56"/>
-    <path d="M82 56H60V71H82V86H60"/>
-  </g>
-</svg>
