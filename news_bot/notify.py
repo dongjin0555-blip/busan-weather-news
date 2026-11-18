@@ -132,6 +132,8 @@ def write_data(items, rejected):
     keep = lambda dt, days: now - datetime.fromisoformat(dt) <= timedelta(days=days)
     # 저장된 기사도 현재 제목 규칙으로 재점검 (규칙이 바뀌면 예전에 통과한 기사가 자동으로 정리됨)
     news = {i["link"]: i for i in old.get("items", []) if scrape.title_ok(i["title"])}
+    for i in news.values():  # 주요 판정 규칙이 바뀌면 저장된 기사에도 다시 적용
+        i["important"] = scrape.is_important(i["categories"], i["title"], i.get("score", 0))
     for it in items:
         news[it["link"]] = {k: it[k] for k in ("link", "title", "dt", "regions", "categories",
                                                 "keywords", "score", "important")}

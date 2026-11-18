@@ -113,6 +113,16 @@ def classify(title, desc=""):
     return regions, kinds, list(dict.fromkeys(a + b + c)), score, reason
 
 
+def is_important(kinds, title, score):
+    """주요(🚨) 기사: 특보 발효·발표 기사, 또는 사망·실종·대피 등 실제 피해 신호(점수)가 있는 기상 원인 기사.
+    대책·복구·지원·인정 같은 사후·행정 기사와 '해제'는 주요가 아님."""
+    if not kinds or any(w in title for w in C.NOT_IMPORTANT):
+        return False
+    if kinds[0] == C.KIND_ALERT:
+        return "해제" not in title
+    return kinds[0] == C.KIND_CAUSE and score >= C.IMPORTANT_MIN
+
+
 def _fetch(url):
     try:
         return list(fetch_rss(url).iter("item"))
@@ -144,6 +154,6 @@ def collect(max_age_hours=None):
                 continue
             items[link] = dict(link=link, title=title, desc=desc, dt=dt.isoformat(),
                                regions=regions, categories=kinds, keywords=kws, score=score,
-                               important=kinds[0] == C.KIND_CAUSE or (kinds[0] == C.KIND_ALERT and "해제" not in title))
+                               important=is_important(kinds, title, score))
     rejected[:] = sorted(rej.values(), key=lambda x: x["dt"])
     return sorted(items.values(), key=lambda x: x["dt"])
