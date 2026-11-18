@@ -218,6 +218,9 @@
         ? "파일을 직접 열면 데이터를 읽을 수 없습니다. 웹 주소(https://busanweathernews.com/)로 접속해 주세요."
         : "데이터를 불러오지 못했습니다 (" + e.message + "). 인터넷 연결, 광고 차단·보안 프로그램, 사내망 차단 여부를 확인해 주세요.";
     }
+    if (Date.now() >= Date.parse("2027-12-01T00:00:00+09:00")) {
+      $("err").style.display = "block"; $("err").textContent = "운영이 종료되었습니다 (2027년 11월까지). 이후 새 기사는 수집되지 않습니다.";
+    }
     lastLoad = Date.now(); w.classList.remove("busy"); setUpdated(); render();
   }
   // 창을 내려 두면 브라우저가 일반 타이머를 늦추므로, 워커 타이머로 60초마다 확인 (실패하면 일반 타이머)

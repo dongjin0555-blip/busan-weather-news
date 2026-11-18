@@ -174,6 +174,25 @@ def run_window(token, chat_id, since, until):
     print("sent window test:", [i["title"] for i in items])
 
 
+def expired(now=None):
+    """운영 종료일(config.END_DATE, KST) 하루가 지났는지."""
+    now = now or datetime.now(KST)
+    return now.date() > datetime(*C.END_DATE).date()
+
+
+def end_notice(token, chat_id, dry):
+    """종료일 이후: 수집·전송 없이, 종료 안내를 처음 한 번만 보냄."""
+    end = "{}년 {}월 {}일".format(*C.END_DATE)
+    print(f"운영 종료일({end})이 지나 수집·전송을 하지 않습니다")
+    sent = json.loads(SENT_FILE.read_text()) if SENT_FILE.exists() else {}
+    if dry or "__ended__" in sent:
+        return
+    tg_send(token, chat_id, f"🔚 <b>운영 종료 안내</b>\n기상·재해 뉴스 알림은 {end}까지 운영하는 것으로 설정되어 있어 "
+            "더 이상 새 기사를 수집·전송하지 않습니다. 연장이 필요하면 설정(END_DATE)을 변경하세요.")
+    sent["__ended__"] = datetime.now(timezone.utc).isoformat()
+    SENT_FILE.write_text(json.dumps(sent, ensure_ascii=False, indent=0))
+
+
 def within_hours(now=None):
     """평일(월~금) KST 08:00~18:30 (18:00 슬롯이 조금 늦어져도 허용)."""
     now = now or datetime.now(KST)
@@ -217,6 +236,8 @@ def main():
         return debug_feed(os.environ["DEBUG_FEED"])
     token, chat_id = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
     dry = not (token and chat_id)
+    if expired():
+        return end_notice(token, chat_id, dry)
     if "--only-hours" in sys.argv and not within_hours():
         # GitHub 스케줄이 늦게 실행되어도 운영 시간 밖에는 전송하지 않음 (다음 운영 시간에 이어서 전송)
         print("운영 시간(평일 08:00~18:30 KST) 밖이라 건너뜁니다")
