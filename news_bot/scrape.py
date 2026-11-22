@@ -56,6 +56,9 @@ DESK_PLACES = ("서울", "세종", "전국")  # 전국 데스크 송고: 본문�
 
 def _regions(text):
     text = text.replace("부산물", "")  # '영농부산물' 등이 부산으로 잡히는 것 방지
+    # '통영함', '부산호' 같은 선박 이름은 지명이 아님
+    names = sorted({n for ns in C.REGIONS.values() for n in ns}, key=len, reverse=True)
+    text = re.sub("(?:" + "|".join(map(re.escape, names)) + ")(?:함|호)(?![가-힣])", " ", text)
     text = re.sub(r"\S+\s?(?:방향|행)(?=[\s,.…·)]|$)", " ", text)  # '창원 방향', '부산행' 등 목적지는 사건 장소가 아님
     return [r for r, ns in C.REGIONS.items() if any(n in text for n in ns)]
 
