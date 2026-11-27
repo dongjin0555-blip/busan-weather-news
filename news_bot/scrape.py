@@ -92,9 +92,16 @@ def classify(title, desc=""):
     place, body = split_desc(desc)
     text = _strip_noise(f"{title} {body}")
     strong = _regions(f"{title} {place}")
+    # '고성'은 강원/경남 동명이라 단서로 구분 (제목·송고지에 고성이 있으면 확정, 본문에만 있으면 약한 지역)
+    gs_all = f"{title} {place} {body}"
+    gs_gn = "고성" in gs_all and any(k in gs_all for k in C.GOSEONG_GN) and not any(k in gs_all for k in C.GOSEONG_GW)
+    if gs_gn and "고성" in f"{title} {place}" and "경남" not in strong:
+        strong = strong + ["경남"]
     elsewhere = bool(place) and not any(d in place for d in DESK_PLACES) and not _regions(place)
     other_title = (not strong) and any(o in title for o in C.OTHER_REGIONS) and "바다" not in title  # 제목이 타 지역 이야기면 본문 곁다리 지명 무시 (해상 특보는 바다 구역이 걸쳐 있어 제외)
-    weak = [] if (elsewhere or other_title) else [r for r in _regions(body) if r not in strong]  # 타 지역 송고면 본문 지명 무시
+    weak = [] if (elsewhere or other_title) else [r for r in _regions(body) if r not in strong]
+    if gs_gn and "고성" in body and "경남" not in strong and "경남" not in weak and not (elsewhere or other_title):
+        weak.append("경남")  # 타 지역 송고면 본문 지명 무시
     ex = next((w for w in C.EXCLUDE if w in text), None) or next((w for w in C.TITLE_EXCLUDE if w in _strip_noise(title)), None)
     a = [k for k in C.CAUSE if k in text]
     b = [k for k in C.DAMAGE if k in text]
